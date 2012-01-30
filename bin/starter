@@ -1,0 +1,409 @@
+#! /usr/bin/env sh
+# (C) Martin Vaeth <martin@mvath.de>
+
+Echo() {
+	printf '%s\n' "${*}"
+}
+
+Message() {
+	printf '%s: %s\n' "${0##*/}" "${*}" >&2
+}
+
+trapr=0
+Error() {
+	Message "${*}"
+	trapr=2
+}
+
+Fatal() {
+	Error "${*}"
+	exit ${trapr}
+}
+
+Warning() {
+	${quiet} || Message "warning: ${*}"
+}
+
+CalcFilename() {
+	if [ -z "${filename}" ]
+	then	calctest="${tempdir%/}/${0##*/}.queues"
+	else	calctest="${filename}"
+	fi
+	case "${calctest}" in
+	/*)	eval "${1}=\"\${calctest}\"";;
+	*)	Fatal 'filename must start with /';;
+	esac
+	calctest="${calctest%/*}"
+	: ${calctest:=/}
+	test -d "${calctest}" && test -w "${calctest}" || \
+		Fatal "directory ${calctest} is not a writable directory"
+	unset calctest
+}
+
+Usage() {
+	CalcFilename fileprint
+	Echo "Usage: ${0##*/} [options] COMMAND [args for COMMAND]
+Wait until all commands started before by \"${0##*/}\" (or which are waiting)
+are finished and then start COMMAND. Note that COMMAND may be \"eval\" in
+which case the args can be almost any POSIX shell code.
+If no locking functionality failed, the exit status is that of COMMAND.
+
+(If you want an analogous functionality for several commands in your current
+shell you might want to use the starter_trap function; use \". starter_trap\"
+to define that function and \"starter_trap -h\" to print its description.)
+
+The following options are available:
+-i      Start command immediately (but increase the number of commands in
+        the queue anyway while the command is run).
+-w      Do not start any command, only wait (or execute -d/S/0/Z).
+        This is similar, but more efficient, to using a \"dummy\" command.
+-v      Verbose: If not starting, report to stderr how many processes are
+        running and waiting.
+-q      Quiet: Do not print warnings.
+-S      If command finishes unsuccessfully (with nonzero exit status)
+        or if used together with option -w, treat queue as if command would
+        never finish. Note that this means that the rest of the queue
+        is *never* executed unless ${0##*/} is called afterwards with the
+        option -d (or -0/Z).
+-d      Decrease the number of commands in the queue by 1 (before waiting).
+        This might be necessary if a ${0##*/} process died unexpectedly
+        or if the -S option was used.
+-0 or z Set the number of processes to 0 (in the queue).
+-Z      Set the number of processes to 0 in all queues.
+        You should use this when you use ${0##*/} for the first time
+        after a reboot (when perhaps not all processes of a queue had been
+        finished before in a regular manner)
+-p      Print the number of currently running/waiting processes in the queue
+        and exit.
+-P      Print the number of currently running/waiting processes and the
+        number of currently waiting processes in the queue and exit.
+-c NAME Use queue NAME. Current value: ${queuename}
+-s TIME Sleep TIME between new checks of the queue. TIME is used as an
+        argument to sleep (type \"man sleep\" for details).
+        Current value: ${sleeptime}
+-u xxx  Use umask xxx to create the queue and lock FILEs.
+        Current value: ${myumask}
+-t DIR  Use DIR as tempdir to store FILE and FILE.lock; this is ignored if
+        option -f is used. Default is /tmp or \$TEMPDIR if the latter is set.
+        Current value: ${tempdir}
+-f FILE Use FILE and FILE.lock for queues and locking, respectively.
+        FILE must be an absolute path. Defaults to: 'tempdir/${0##*/}.queues'
+        Current value: ${fileprint}
+
+Security note:
+It is one purpose of this script that processes of different users can
+wait for each other. Note that this means in particular that a
+bad-willing user might misuse this to block processes started with this
+script etc. Also racing conditions (with an intentional changing of the
+lock-file) might be misused to reorder the queue. So be sure that such a
+thing cannot become a security risk for you if you use this script.
+You can restrict the access with options -t -f or -u, making use of the usual
+file permissions in appropriate directories."
+	exit ${1:-1}
+}
+
+set -f
+
+tempdir="${TEMPDIR:-/tmp}"
+filename=""
+immediately=false
+nocommand=false
+decrease=''
+queuename='default'
+sleeptime=1
+printonly=''
+success=false
+verbose=false
+myumask='000'
+noargok=false
+quiet=false
+OPTIND=1
+while getopts 'iwvqSd0zZpPc:s:u:t:f:hH?' opt
+do	case "${opt}" in
+	i)	immediately=:;;
+	w)	nocommand=:
+		noargok=:;;
+	v)	verbose=:;;
+	q)	quiet=:;;
+	S)	success=:;;
+	d)	decrease=1;;
+	D)	decrease=-1;;
+	0|z)	decrease=0;;
+	Z)	decrease='Z';;
+	p)	printonly=0
+		noargok=:;;
+	P)	printonly=1
+		noargok=:;;
+	c)	queuename="${OPTARG}";;
+	s)	sleeptime="${OPTARG}";;
+	u)	myumask="${OPTARG}";;
+	t)	tempdir="${OPTARG}";;
+	f)	filename="${OPTARG}";;
+	*)	Usage;;
+	esac
+done
+shift $(( ${OPTIND} - 1 ))
+[ ${#} -ne 0 ] || ${noargok} || Usage
+
+CalcFilename filename
+
+retvalue=0
+
+${verbose} && toexec="${*}: "
+
+if [ -z "${printonly}" ]
+then	lockfile="${filename}.lock"
+	magic="${$}.${RANDOM}."
+fi
+
+Push() {
+	case "${1}" in
+	-*)	shift
+		eval "${1}=''";;
+	esac
+	PushD_="${1}"
+	shift
+	eval "for PushA_
+	do	[ -z \"\${${PushD_}}\" ] && ${PushD_}=\\' \
+			|| ${PushD_}=\"\${${PushD_}} '\"
+		PushB_=\"\${PushA_}\"
+		while {
+			PushC_=\"\${PushB_%%\\'*}\"
+			[ \"\${PushC_}\" != \"\${PushB_}\" ]
+		}
+		do	${PushD_}=\"\${${PushD_}}\${PushC_}'\\\\''\"
+			PushB_=\"\${PushB_#*\\'}\"
+		done
+		${PushD_}=\"\${${PushD_}}\${PushB_}'\"
+	done"
+}
+
+
+GetLock() {
+	if [ ${retvalue} -eq 0 ]
+	then	trapr=1
+	else	trapr=${retvalue}
+	fi
+	[ ${#} -eq 0 ] && trap "DropLock
+exit $trapr" EXIT HUP INT TERM
+	while :
+	do	while test -r "${lockfile}"
+		do	sleep 1
+		done
+		( umask ${myumask} && \
+			Echo "${magic}" >"${lockfile}" 2>/dev/null ) || \
+			Fatal "cannot write to lockfile ${lockfile}"
+		# Test whether another process took precedence before writing.
+		# This avoids a race condition beetween the test and creation of
+		# the lockfile.
+		read readmagic <"${lockfile}"
+		case "${readmagic}" in
+		"${magic}"*) return
+		esac
+	done
+}
+
+DropLock() {
+	trap : EXIT HUP INT TERM
+	rm -- "${lockfile}" >/dev/null 2>&1 \
+		|| Fatal "cannot remove ${lockfile}"
+	trap "${1:--}" EXIT HUP INT TERM
+}
+
+# Get number, waiting, total, and queues.
+# queues contains then all queues except the current one.
+
+Reading() {
+	Push -c queues
+	number=''
+	if test -r "${filename}"
+	then	while read num wait tot queue
+		do	case "${num}" in
+				*#*) continue;;
+			esac
+			[ -n "${queue}" ] || continue
+			if [ "${queue}" = "${queuename}" ]
+			then	number="${num}"
+				waiting="${wait}"
+				total="${tot}"
+			else	Push queues "${num} ${wait} ${tot} ${queue}"
+			fi
+		done <"${filename}"
+	fi
+	if [ -z "${number}" ]
+	then	number=0
+		waiting=0
+		total=0
+	fi
+}
+
+NewFile() {
+	( umask "${myumask}"
+	Echo "# ${0##*/} status-file" >"${filename}" ) || \
+		Fatal "cannot write to ${filename}"
+}
+
+# Write the current content of number, waiting, total, and queues.
+# This function modifies queues, so it should not be called twice
+# without an intermediate call of Reading.
+
+Writing() {
+	[ "${number}" -le 0 ] || \
+		Push queues "${number} ${waiting} ${total} ${queuename}"
+	if [ -z "${queues}" ]
+	then	if test -r "${filename}"
+		then	NewFile
+			rm -- "${filename}" >/dev/null 2>&1 \
+				|| Warning "cannot remove ${filename}"
+		fi
+		return
+	fi
+	NewFile
+	eval "set -- ${queues}"
+	for writeline
+	do	Echo "${writeline}" >>"${filename}" \
+			|| Fatal "cannot append to ${filename}"
+	done
+}
+
+DoDecrease() {
+	number=$(( ${number} - 1 ))
+	[ "${number}" -lt "${waiting}" ] && waiting="${number}"
+}
+
+IsReady() {
+	# Decreasing of total means that we had some "reset":
+	[ "${mypos}" -gt "${total}" ] && return 0
+	# Not all running processes are waiting. Then wait.
+	[ "${number}" -gt "${waiting}" ] && return 1
+	# new is the number of waiting processes added since we wait:
+	new=$(( ${total} - ${mypos} ))
+	# There are more processes waiting than new ones,
+	# i.e. our process should wait.
+	[ "${waiting}" -gt "${new}" ] && return 1
+	return 0
+}
+
+DecreaseTrap() {
+	waiting=$(( ${waiting} - 1 ))
+	number=$(( ${number} - 1 ))
+	Writing
+	trap - EXIT
+}
+
+# Wait until it is our turn. The name should remind us on a side effect:
+# When the function returns, we still have the lock.
+# Indeed, usually we will want to write immediately that we stopped waiting.
+# Actually there are two cases after the return of this function.
+#
+# 1. We did not have to wait at all.
+#    In this case, mustwrite is false, the queue-file was never modified,
+#    and no values are changed.
+#
+# 2. We did have to wait at least once.
+#    In this case, mustwrite is :, and number, waiting, total
+#    are increased by 1 (and have been written to the file in this form).
+#    However, waiting and number are already again decreased by 1
+#    (and thus should be written to the queue-file afterwards) because
+#    this is now the "actual" number of processes/waiting processes.
+#    It is up to the caller to increase number again by 1 (before writing
+#    to the queue-file) if the process is already finished.
+
+WaitingLocked() {
+	GetLock
+	Reading
+	mypos="${total}"
+	if IsReady
+	then	mustwrite=false
+		return
+	fi
+	number=$(( ${number} + 1 ))
+	waiting=$(( ${waiting} + 1 ))
+	total=$(( ${total} + 1 ))
+	mustwrite=:
+	Writing
+	while :
+	do	DropLock "DecreaseTrap
+exit ${trapr}"
+		if ${verbose}
+		then	calccount=$(( ${number} + ${mypos} - ${total} ))
+			Message "${toexec}sleep ${sleeptime}
+${number} processes in queue \"${queuename}\", ${waiting} of them waiting
+${calccount} processes must first be finished"
+		fi
+		sleep "${sleeptime}"
+		GetLock
+		Reading
+		if IsReady
+		then	number=$(( ${number} - 1 ))
+			waiting=$(( ${waiting} - 1 ))
+			return
+		fi
+	done
+}
+
+if [ -n "${printonly}" ]
+then	Reading
+	if [ "${printonly}" -eq 0 ]
+	then	Echo "${number}"
+	else	Echo "${number} ${waiting}"
+	fi
+	exit ${retvalue}
+fi
+
+if [ -n "${decrease}" ]
+then	GetLock
+	[ "${decrease}" != 'Z' ] && Reading
+	if [ "${decrease}" = '1' ]
+	then	DoDecrease
+	else	number=0
+		waiting=0
+		total=0
+		[ "${decrease}" = '0' ] && Push -c queues
+	fi
+	Writing
+	DropLock
+fi
+
+if ! ${immediately}
+then	WaitingLocked
+	if ${nocommand}
+	then	if ${success}
+		then	mustwrite=:
+			number=$(( ${number} + 1 ))
+		fi
+		${mustwrite} && Writing
+		DropLock
+		exit ${retvalue}
+	fi
+elif ${nocommand}
+then	if ${success}
+	then	GetLock
+		Reading
+		number=$(( ${number} + 1 ))
+		Writing
+		DropLock
+	fi
+	exit ${retvalue}
+else	GetLock
+	Reading
+fi
+
+FinishProcess() {
+	GetLock
+	Reading
+	DoDecrease
+	Writing
+	DropLock
+	exit ${retvalue}
+}
+
+number=$(( ${number} + 1 ))
+Writing
+DropLock "FinishProcess"
+( set +f
+"${@}" )
+retvalue=${?}
+${success} && [ ${retvalue} -ne 0 ] || FinishProcess
+trap - EXIT
+exit ${retvalue}

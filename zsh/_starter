@@ -1,0 +1,29 @@
+#compdef starter starter_trap
+local -a args
+args=(
+'(* -)'{'-h','-H','-\\?'}'[help]'
+'-i[Start command immediately]'
+'-w[Do not start any command, only wait]'
+'-v[Verbose]'
+'-q[Quiet]'
+'-S[Command finishes only if exit status 0 is returned]'
+'-d[Decrease the number of commands in the queue]'
+'-0[Set the number of processes to 0]'
+'-Z[Set the number of processes to 0 in all queues.]'
+'-p[Print number processes]'
+'-P[Print verbosely number processes]'
+'-c+[Use queue ARG]:queue:(default)'
+'-s+[Sleep ARG between new checks of the queue]:time:(1s)'
+'-u+[Use umask ARG for queue and locks]:umask:(000)'
+'-t+[Use ARG as temporary directory]:queuefile:(/tmp ${TEMPDIR})'
+'-f+[Use ARG and ARG.lock for queue and lock files]:queuefile:(/tmp/starter.queues)'
+)
+case $service in
+(*trap*)
+	_arguments -s -S : $args \
+'*::start or stop:(start stop help)'
+;;
+(*)	_arguments -s -S -A '-*' : $args \
+'*::command: _normal'
+;;
+esac

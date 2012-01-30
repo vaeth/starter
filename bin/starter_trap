@@ -1,0 +1,72 @@
+#! /bin/sh
+# The above line is only for editors - actually this script *must* be sourced.
+# After sourcing, use "starter_trap -h" for help
+#
+# (C) Martin Vaeth <martin@mvath.de>
+
+starter_trap() {
+starter_trap_sub() {
+	case "${-}" in
+	*f*)	eval "set -- ${starter_trap_arg}";;
+	*)	set -f; eval "set -- ${starter_trap_arg}"; set +f;;
+	esac
+	starter -idw "${@}"
+	trap - EXIT HUP INT TERM
+	unset starter_trap_arg
+	unset -f starter_trap_sub
+}
+case "${1}" in
+start)
+	shift
+	starter -Sw "${@}"
+	for starter_trap_a
+	do	[ -z "${starter_trap_arg}" ] && starter_trap_arg="'" \
+			|| starter_trap_arg="${starter_trap_arg} '"
+		starter_trap_b="${starter_trap_a}"
+		while {
+			starter_trap_c="${starter_trap_b%%\'*}"
+			[ "${starter_trap_c}" != "${starter_trap_b}" ]
+		}
+		do	starter_trap_arg="${starter_trap_arg}${starter_trap_c}'\\''"
+			starter_trap_b="${starter_trap_b#*\'}"
+		done
+		starter_trap_arg="${starter_trap_arg}${starter_trap_b}'"
+	done
+	unset starter_trap_a starter_trap_b starter_trap_c
+	trap starter_trap_sub EXIT HUP INT TERM
+;;
+stop)
+	starter_trap_sub
+;;
+*)
+	printf '%s\n' \
+'Usage: starter_trap start [further options for "starter"]
+or     starter_trap stop
+
+This function should first be called with argument "start"; then any shell
+commands can be executed, and afterwards this function should be called with
+argument "stop".  Your shell behaves then as if the shell commands would
+have been put in a script which would have been called with "starter".
+
+Technical details: "start" essentially is a call to "starter -Sw"
+which increases the number of processes in the starter queue by 1.
+Moreover, traps EXIT HUP INT TERM are set correspondingly such that this number
+is decreased again with "starter -idw" in case of an unexpected exit
+during the further shell commands (this is the reason why this script
+must be sourced). "stop" does essentially the same as this trap.
+The additional options to "starter" are used in both calls to ensure that
+e.g. the same queue and queue files are used.
+
+The further options for "starter" are not checked for consistency.
+Spaces in these arguments are OK, but other special characters may produce
+unexpected results unless bash >= 3 is used.
+
+Note that shell variables/functions of the form starter_trap_* might be
+modified by this function.'
+	case "${1}" in
+	-[hH]|-'?'|help) :;;
+	*) false;
+	esac
+;;
+esac
+}

@@ -1,0 +1,30 @@
+(C) Martin Väth <martin@mvath.de>
+This project is under the BSD license.
+
+starter - POSIX shell script and function to schedule commands
+
+This script can be used to schedule commands in a multitasking
+and multiuser environment.
+
+Commands started with this script will wait with the execution
+until all commands started earlier with this script
+(possibly by a different user) have been executed.
+
+You can also have several of such command queues or add a command
+to a queue even if you start it immediately.
+
+For installation, copy the content of bin/ in your path.
+
+To get help about the usage, call
+	starter -h
+
+To define the starter_trap function for execution of commands within your
+current shell, call
+	. starter_trap
+Information about the starter_trap function can then be obtained with
+	starter_trap -h
+
+To obtain support for zsh completion, you can copy the content of zsh/
+to a directory of zsh's $fpath.
+
+For Gentoo, there is an ebuild in the mv overlay (available by layman).

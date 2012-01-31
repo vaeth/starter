@@ -85,7 +85,7 @@ The following options are available:
         This defaults to your current umask (or 000 if STARTER=unsafe).
         Current value: ${myumask:-current umask}
 -t DIR  Use DIR as tempdir to store FILE and FILE.lock; this is ignored if
-        option -f is used. Default is \$TEMPDIR if set, otherwise \$HOME
+        option -f is used. Default is \$STARTER_DIR if set, otherwise \$HOME
         (or /tmp with STARTER=unsafe).
         Current value: ${tempdir}
 -f FILE Use FILE and FILE.lock for queues and locking, respectively.
@@ -94,7 +94,7 @@ The following options are available:
 
 Security notes:
 
-!!! If TEMPDIR (or -t) is a directory which is not only writable by you,
+!!! If STARTER_DIR (or -t) is a directory which is not only writable by you,
 running this script makes you vulnerable to symlink attacks !!!
 
 With STARTER=unsafe, the defaults are chosen such that processes of arbitrary
@@ -110,22 +110,22 @@ which can indirectly modify your files.
 Thus, use STARTER=unsafe only in a true single-valued environment and
 if you understand these implications.
 
-Usually, it is preferable to share queues only with trusted user(s): Create a
-directory writable only by this user/group and set TEMPDIR to that directory.
+It is preferable to share queues only with trusted user(s): Create a directory
+writable only by this user/group and set STARTER_DIR to that directory.
 Nevertheless, the users from this group can still start symlink attacks."
 	exit ${1:-1}
 }
 
 set -f
 
-tempdir="${TEMPDIR}"
+tempdir="${STARTER_DIR}"
 case "${STARTER}" in
 unsafe)
 	: ${tempdir:=/tmp}
 	myumask='000'
 ;;
 *)
-	[ -n "${TEMPDIR}" ] || tempdir="${HOME}"
+	[ -n "${STARTER_DIR}" ] || tempdir="${HOME}"
 	myumask=''
 ;;
 esac

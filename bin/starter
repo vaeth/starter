@@ -82,30 +82,54 @@ The following options are available:
         argument to sleep (type \"man sleep\" for details).
         Current value: ${sleeptime}
 -u xxx  Use umask xxx to create the queue and lock FILEs.
-        Current value: ${myumask}
+        This defaults to your current umask (or 000 if STARTER=unsafe).
+        Current value: ${myumask:-current umask}
 -t DIR  Use DIR as tempdir to store FILE and FILE.lock; this is ignored if
-        option -f is used. Default is /tmp or \$TEMPDIR if the latter is set.
+        option -f is used. Default is \$TEMPDIR if set, otherwise \$HOME
+        (or /tmp with STARTER=unsafe).
         Current value: ${tempdir}
 -f FILE Use FILE and FILE.lock for queues and locking, respectively.
         FILE must be an absolute path. Defaults to: 'tempdir/${0##*/}.queues'
         Current value: ${fileprint}
 
-Security note:
-It is one purpose of this script that processes of different users can
-wait for each other. Note that this means in particular that a
-bad-willing user might misuse this to block processes started with this
-script etc. Also racing conditions (with an intentional changing of the
-lock-file) might be misused to reorder the queue. So be sure that such a
-thing cannot become a security risk for you if you use this script.
-You can restrict the access with options -t -f or -u, making use of the usual
-file permissions in appropriate directories."
+Security notes:
+
+!!! If TEMPDIR (or -t) is a directory which is not only writable by you,
+running this script makes you vulnerable to symlink attacks !!!
+
+With STARTER=unsafe, the defaults are chosen such that processes of arbitrary
+users can wait for each other.
+This has severe security implications, only one being obvious:
+A malevolent user can modify the queues so that your waiting process will never
+start or that \"${0##*/}\" returns with an error or never gets a lockfile.
+
+However, since the names of FILE and FILE.lock must be known and reside in a
+world-writable directory, a malevolent user can also start symlink attacks
+which can indirectly modify your files.
+
+Thus, use STARTER=unsafe only in a true single-valued environment and
+if you understand these implications.
+
+Usually, it is preferable to share queues only with trusted user(s): Create a
+directory writable only by this user/group and set TEMPDIR to that directory.
+Nevertheless, the users from this group can still start symlink attacks."
 	exit ${1:-1}
 }
 
 set -f
 
-tempdir="${TEMPDIR:-/tmp}"
-filename=""
+tempdir="${TEMPDIR}"
+case "${STARTER}" in
+unsafe)
+	: ${tempdir:=/tmp}
+	myumask='000'
+;;
+*)
+	[ -n "${TEMPDIR}" ] || tempdir="${HOME}"
+	myumask=''
+;;
+esac
+filename=''
 immediately=false
 nocommand=false
 decrease=''
@@ -114,7 +138,6 @@ sleeptime=1
 printonly=''
 success=false
 verbose=false
-myumask='000'
 noargok=false
 quiet=false
 OPTIND=1
@@ -156,6 +179,10 @@ then	lockfile="${filename}.lock"
 	magic="${$}.${RANDOM}."
 fi
 
+Umask() {
+	[ -z "${myumask}" ] || umask "${myumask}"
+}
+
 Push() {
 	case "${1}" in
 	-*)	shift
@@ -190,9 +217,8 @@ exit $trapr" EXIT HUP INT TERM
 	do	while test -r "${lockfile}"
 		do	sleep 1
 		done
-		( umask ${myumask} && \
-			Echo "${magic}" >"${lockfile}" 2>/dev/null ) || \
-			Fatal "cannot write to lockfile ${lockfile}"
+		( Umask && set -C && Echo "${magic}" >"${lockfile}" ) \
+			>/dev/null 2>&1 || continue
 		# Test whether another process took precedence before writing.
 		# This avoids a race condition beetween the test and creation of
 		# the lockfile.
@@ -238,9 +264,8 @@ Reading() {
 }
 
 NewFile() {
-	( umask "${myumask}"
-	Echo "# ${0##*/} status-file" >"${filename}" ) || \
-		Fatal "cannot write to ${filename}"
+	( Umask && Echo "# ${0##*/} status-file" >"${filename}" ) \
+		|| Fatal "cannot write to ${filename}"
 }
 
 # Write the current content of number, waiting, total, and queues.

@@ -2,33 +2,35 @@
 # The above line is only for editors - actually this script *must* be sourced.
 # After sourcing, use "starter_trap -h" for help
 #
-# (C) Martin Vaeth <martin@mvath.de>
+# (C) Martin V\"ath <martin@mvath.de>
 
 starter_trap() {
 starter_trap_sub() {
-	case "${-}" in
+	case ${-} in
 	*f*)	eval "set -- ${starter_trap_arg}";;
-	*)	set -f; eval "set -- ${starter_trap_arg}"; set +f;;
+	*)	set -f
+		eval "set -- ${starter_trap_arg}"
+		set +f;;
 	esac
 	starter -idw "${@}"
 	trap - EXIT HUP INT TERM
 	unset starter_trap_arg
 	unset -f starter_trap_sub
 }
-case "${1}" in
+case ${1} in
 start)
 	shift
 	starter -Sw "${@}"
 	for starter_trap_a
 	do	[ -z "${starter_trap_arg}" ] && starter_trap_arg="'" \
 			|| starter_trap_arg="${starter_trap_arg} '"
-		starter_trap_b="${starter_trap_a}"
+		starter_trap_b=${starter_trap_a}
 		while {
-			starter_trap_c="${starter_trap_b%%\'*}"
+			starter_trap_c=${starter_trap_b%%\'*}
 			[ "${starter_trap_c}" != "${starter_trap_b}" ]
 		}
 		do	starter_trap_arg="${starter_trap_arg}${starter_trap_c}'\\''"
-			starter_trap_b="${starter_trap_b#*\'}"
+			starter_trap_b=${starter_trap_b#*\'}
 		done
 		starter_trap_arg="${starter_trap_arg}${starter_trap_b}'"
 	done
@@ -63,9 +65,8 @@ unexpected results unless bash >= 3 is used.
 
 Note that shell variables/functions of the form starter_trap_* might be
 modified by this function.'
-	case "${1}" in
-	-[hH]|-'?'|help) :;;
-	*) false;
+	! case ${1} in
+	-[hH?]|help)	false;;
 	esac
 ;;
 esac

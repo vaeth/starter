@@ -1,12 +1,12 @@
 #! /usr/bin/env sh
-# (C) Martin Vaeth <martin@mvath.de>
+# (C) Martin V\"ath <martin@mvath.de>
 
 Echo() {
 	printf '%s\n' "${*}"
 }
 
 Message() {
-	printf '%s: %s\n' "${0##*/}" "${*}" >&2
+	printf "${0##*/}: ${*}" >&2
 }
 
 trapr=0
@@ -29,8 +29,8 @@ CalcFilename() {
 	then	calctest="${tempdir%/}/${0##*/}.queues"
 	else	calctest="${filename}"
 	fi
-	case "${calctest}" in
-	/*)	eval "${1}=\"\${calctest}\"";;
+	case ${calctest} in
+	/*)	eval "${1}=\${calctest}";;
 	*)	Fatal 'filename must start with /';;
 	esac
 	calctest="${calctest%/*}"
@@ -119,13 +119,13 @@ Nevertheless, the users from this group can still start symlink attacks."
 set -f
 
 tempdir="${STARTER_DIR}"
-case "${STARTER}" in
+case ${STARTER} in
 unsafe)
 	: ${tempdir:=/tmp}
 	myumask='000'
 ;;
 *)
-	[ -n "${STARTER_DIR}" ] || tempdir="${HOME}"
+	: ${tempdir:=${HOME}}
 	myumask=''
 ;;
 esac
@@ -142,7 +142,7 @@ noargok=false
 quiet=false
 OPTIND=1
 while getopts 'iwvqSd0zZpPc:s:u:t:f:hH?' opt
-do	case "${opt}" in
+do	case ${opt} in
 	i)	immediately=:;;
 	w)	nocommand=:
 		noargok=:;;
@@ -157,11 +157,11 @@ do	case "${opt}" in
 		noargok=:;;
 	P)	printonly=1
 		noargok=:;;
-	c)	queuename="${OPTARG}";;
-	s)	sleeptime="${OPTARG}";;
-	u)	myumask="${OPTARG}";;
-	t)	tempdir="${OPTARG}";;
-	f)	filename="${OPTARG}";;
+	c)	queuename=${OPTARG};;
+	s)	sleeptime=${OPTARG};;
+	u)	myumask=${OPTARG};;
+	t)	tempdir=${OPTARG};;
+	f)	filename=${OPTARG};;
 	*)	Usage;;
 	esac
 done
@@ -184,27 +184,26 @@ Umask() {
 }
 
 Push() {
-	case "${1}" in
+	case ${1} in
 	-*)	shift
 		eval "${1}=''";;
 	esac
-	PushD_="${1}"
+	PushD_=${1}
 	shift
 	eval "for PushA_
 	do	[ -z \"\${${PushD_}}\" ] && ${PushD_}=\\' \
 			|| ${PushD_}=\"\${${PushD_}} '\"
-		PushB_=\"\${PushA_}\"
+		PushB_=\${PushA_}
 		while {
-			PushC_=\"\${PushB_%%\\'*}\"
+			PushC_=\${PushB_%%\\'*}
 			[ \"\${PushC_}\" != \"\${PushB_}\" ]
 		}
 		do	${PushD_}=\"\${${PushD_}}\${PushC_}'\\\\''\"
-			PushB_=\"\${PushB_#*\\'}\"
+			PushB_=\${PushB_#*\\'}
 		done
 		${PushD_}=\"\${${PushD_}}\${PushB_}'\"
 	done"
 }
-
 
 GetLock() {
 	if [ ${retvalue} -eq 0 ]
@@ -223,7 +222,7 @@ exit $trapr" EXIT HUP INT TERM
 		# This avoids a race condition beetween the test and creation of
 		# the lockfile.
 		read readmagic <"${lockfile}"
-		case "${readmagic}" in
+		case ${readmagic} in
 		"${magic}"*) return
 		esac
 	done
@@ -244,14 +243,14 @@ Reading() {
 	number=''
 	if test -r "${filename}"
 	then	while read num wait tot queue
-		do	case "${num}" in
-				*#*) continue;;
+		do	case ${num} in
+			*'#'*) continue;;
 			esac
 			[ -n "${queue}" ] || continue
 			if [ "${queue}" = "${queuename}" ]
-			then	number="${num}"
-				waiting="${wait}"
-				total="${tot}"
+			then	number=${num}
+				waiting=${wait}
+				total=${tot}
 			else	Push queues "${num} ${wait} ${tot} ${queue}"
 			fi
 		done <"${filename}"
@@ -293,7 +292,7 @@ Writing() {
 
 DoDecrease() {
 	number=$(( ${number} - 1 ))
-	[ "${number}" -lt "${waiting}" ] && waiting="${number}"
+	[ "${number}" -lt "${waiting}" ] && waiting=${number}
 }
 
 IsReady() {
@@ -337,7 +336,7 @@ DecreaseTrap() {
 WaitingLocked() {
 	GetLock
 	Reading
-	mypos="${total}"
+	mypos=${total}
 	if IsReady
 	then	mustwrite=false
 		return

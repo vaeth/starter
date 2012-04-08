@@ -30,7 +30,7 @@ CalcFilename() {
 	else	calctest="${filename}"
 	fi
 	case ${calctest} in
-	/*)	eval "${1}=\${calctest}";;
+	/*)	eval ${1}=\${calctest};;
 	*)	Fatal 'filename must start with /';;
 	esac
 	calctest="${calctest%/*}"
@@ -126,16 +126,16 @@ unsafe)
 ;;
 *)
 	: ${tempdir:=${HOME}}
-	myumask=''
+	myumask=
 ;;
 esac
-filename=''
+filename=
 immediately=false
 nocommand=false
-decrease=''
+decrease=
 queuename='default'
 sleeptime=1
-printonly=''
+printonly=
 success=false
 verbose=false
 noargok=false
@@ -186,7 +186,7 @@ Umask() {
 Push() {
 	case ${1} in
 	-*)	shift
-		eval "${1}=''";;
+		eval ${1}=;;
 	esac
 	PushD_=${1}
 	shift
@@ -240,7 +240,7 @@ DropLock() {
 
 Reading() {
 	Push -c queues
-	number=''
+	number=
 	if test -r "${filename}"
 	then	while read num wait tot queue
 		do	case ${num} in

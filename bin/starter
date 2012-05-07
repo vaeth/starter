@@ -27,7 +27,7 @@ Warning() {
 . push.sh
 
 CalcFilename() {
-	if [ -z "${filename}" ]
+	if [ -z "${filename:++}" ]
 	then	calctest="${tempdir%/}/${0##*/}.queues"
 	else	calctest="${filename}"
 	fi
@@ -176,13 +176,13 @@ retvalue=0
 
 ${verbose} && toexec="${*}: "
 
-if [ -z "${printonly}" ]
+if [ -z "${printonly:++}" ]
 then	lockfile="${filename}.lock"
 	magic="${$}.${RANDOM}."
 fi
 
 Umask() {
-	[ -z "${myumask}" ] || umask "${myumask}"
+	[ -z "${myumask:++}" ] || umask "${myumask}"
 }
 
 GetLock() {
@@ -226,7 +226,7 @@ Reading() {
 		do	case ${num} in
 			*'#'*) continue;;
 			esac
-			[ -n "${queue}" ] || continue
+			[ -n "${queue:++}" ] || continue
 			if [ "${queue}" = "${queuename}" ]
 			then	number=${num}
 				waiting=${wait}
@@ -235,7 +235,7 @@ Reading() {
 			fi
 		done <"${filename}"
 	fi
-	if [ -z "${number}" ]
+	if [ -z "${number:++}" ]
 	then	number=0
 		waiting=0
 		total=0
@@ -254,7 +254,7 @@ NewFile() {
 Writing() {
 	[ "${number}" -le 0 ] || \
 		Push queues "${number} ${waiting} ${total} ${queuename}"
-	if [ -z "${queues}" ]
+	if [ -z "${queues:++}" ]
 	then	if test -r "${filename}"
 		then	NewFile
 			rm -- "${filename}" >/dev/null 2>&1 \
@@ -346,7 +346,7 @@ ${calccount} processes must first be finished"
 	done
 }
 
-if [ -n "${printonly}" ]
+if [ -n "${printonly:++}" ]
 then	Reading
 	if [ "${printonly}" -eq 0 ]
 	then	Echo "${number}"
@@ -355,7 +355,7 @@ then	Reading
 	exit ${retvalue}
 fi
 
-if [ -n "${decrease}" ]
+if [ -n "${decrease:++}" ]
 then	GetLock
 	[ "${decrease}" != 'Z' ] && Reading
 	if [ "${decrease}" = '1' ]

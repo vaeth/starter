@@ -30,8 +30,7 @@ commands within your current shell. To use it, execute
 in your current shell or put the following into your shell startup files:
 
 starter_trap() {
-	. starter_trap
-	starter_trap "${@}"
+	. starter_trap && starter_trap "${@}"
 }
 
 Information about the starter_trap function can then be obtained with

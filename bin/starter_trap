@@ -4,6 +4,10 @@
 #
 # (C) Martin V\"ath <martin@mvath.de>
 
+Push() {
+	. push.sh && Push "${@}"
+}
+
 starter_trap() {
 starter_trap_sub() {
 	case ${-} in
@@ -21,25 +25,10 @@ case ${1} in
 start)
 	shift
 	starter -Sw "${@}"
-	for starter_trap_a
-	do	[ -z "${starter_trap_arg}" ] && starter_trap_arg="'" \
-			|| starter_trap_arg="${starter_trap_arg} '"
-		starter_trap_b=${starter_trap_a}
-		while {
-			starter_trap_c=${starter_trap_b%%\'*}
-			[ "${starter_trap_c}" != "${starter_trap_b}" ]
-		}
-		do	starter_trap_arg="${starter_trap_arg}${starter_trap_c}'\\''"
-			starter_trap_b=${starter_trap_b#*\'}
-		done
-		starter_trap_arg="${starter_trap_arg}${starter_trap_b}'"
-	done
-	unset starter_trap_a starter_trap_b starter_trap_c
-	trap starter_trap_sub EXIT HUP INT TERM
-;;
+	Push -c starter_trap_arg "${@}"
+	trap starter_trap_sub EXIT HUP INT TERM;;
 stop)
-	starter_trap_sub
-;;
+	starter_trap_sub;;
 *)
 	printf '%s\n' \
 'Usage: starter_trap start [further options for "starter"]
@@ -67,7 +56,6 @@ Note that shell variables/functions of the form starter_trap_* might be
 modified by this function.'
 	! case ${1} in
 	-[hH?]|help)	false;;
-	esac
-;;
+	esac;;
 esac
 }

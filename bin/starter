@@ -6,7 +6,11 @@ Echo() {
 }
 
 Message() {
-	printf "${0##*/}: ${*}" >&2
+	Echo "${0##*/}: ${*}" >&2
+}
+
+Exit() {
+	exit ${1:-${?}}
 }
 
 trapr=0
@@ -17,7 +21,7 @@ Error() {
 
 Fatal() {
 	Error "${*}"
-	exit ${trapr}
+	Exit ${trapr}
 }
 
 Warning() {
@@ -59,6 +63,7 @@ The following options are available:
         the queue anyway while the command is run).
 -w      Do not start any command, only wait (or execute -d/S/0/Z).
         This is similar, but more efficient, to using a \"dummy\" command.
+-T[pPfHsS-] Pass option(s) to the title script; - means no title
 -v      Verbose: If not starting, report to stderr how many processes are
         running and waiting.
 -q      Quiet: Do not print warnings.
@@ -115,21 +120,19 @@ if you understand these implications.
 It is preferable to share queues only with trusted user(s): Create a directory
 writable only by this user/group and set STARTER_DIR to that directory.
 Nevertheless, the users from this group can still start symlink attacks."
-	exit ${1:-1}
+	Exit ${1:-1}
 }
 
 set -f
 
-tempdir="${STARTER_DIR}"
+tempdir=${STARTER_DIR}
 case ${STARTER} in
 unsafe)
 	: ${tempdir:=/tmp}
-	myumask='000'
-;;
+	myumask='000';;
 *)
 	: ${tempdir:=${HOME}}
-	myumask=
-;;
+	myumask=;;
 esac
 filename=
 immediately=false
@@ -143,17 +146,18 @@ verbose=false
 noargok=false
 quiet=false
 OPTIND=1
-while getopts 'iwvqSd0zZpPc:s:u:t:f:hH?' opt
+while getopts 'iwT:vqSd0zZpPc:s:u:t:f:hH?' opt
 do	case ${opt} in
 	i)	immediately=:;;
 	w)	nocommand=:
 		noargok=:;;
+	T)	titleopt=${titleopt}${OPTARG};;
 	v)	verbose=:;;
 	q)	quiet=:;;
 	S)	success=:;;
 	d)	decrease=1;;
 	D)	decrease=-1;;
-	0|z)	decrease=0;;
+	[0z])	decrease=0;;
 	Z)	decrease='Z';;
 	p)	printonly=0
 		noargok=:;;
@@ -169,6 +173,31 @@ do	case ${opt} in
 done
 shift $(( ${OPTIND} - 1 ))
 [ ${#} -ne 0 ] || ${noargok} || Usage
+
+usetitle=:
+case ${titleopt} in
+*[!pPfHsS-]*)
+	Usage;;
+*-*)
+	usetitle=false;;
+esac
+
+Title() {
+Title() {
+:
+}
+	${usetitle} || return 0
+	command -v title >/dev/null 2>&1 || return 0
+TitleInit() {
+. title "${@}"
+}
+Exit() {
+	exitstatus=${1:-${?}}
+	TitleVerbose
+	exit ${exitstatus}
+}
+	TitleInit ${titleopt:+"-${titleopt}"} -- "${@}"
+}
 
 CalcFilename filename
 
@@ -191,7 +220,7 @@ GetLock() {
 	else	trapr=${retvalue}
 	fi
 	[ ${#} -eq 0 ] && trap "DropLock
-exit $trapr" EXIT HUP INT TERM
+Exit ${trapr}" EXIT HUP INT TERM
 	while :
 	do	while test -r "${lockfile}"
 		do	sleep 1
@@ -326,12 +355,20 @@ WaitingLocked() {
 	total=$(( ${total} + 1 ))
 	mustwrite=:
 	Writing
+	prevtitle=
 	while :
 	do	DropLock "DecreaseTrap
-exit ${trapr}"
-		if ${verbose}
+Exit ${trapr}"
+		if ${verbose} || ${usetitle}
 		then	calccount=$(( ${number} + ${mypos} - ${total} ))
-			Message "${toexec}sleep ${sleeptime}
+			if ${usetitle}
+			then	currtitle="zzz... ${calccount}${titlecommand:+ -> }${titlecommand}"
+				[ "${currtitle}" = "${prevtitle}" ] || {
+					Title "${currtitle}"
+					prevtitle=${currtitle}
+				}
+			fi
+			! ${verbose} || Message "${toexec}sleep ${sleeptime}
 ${number} processes in queue \"${queuename}\", ${waiting} of them waiting
 ${calccount} processes must first be finished"
 		fi
@@ -341,6 +378,7 @@ ${calccount} processes must first be finished"
 		if IsReady
 		then	number=$(( ${number} - 1 ))
 			waiting=$(( ${waiting} - 1 ))
+			Title "${titlecommand}"
 			return
 		fi
 	done
@@ -352,7 +390,7 @@ then	Reading
 	then	Echo "${number}"
 	else	Echo "${number} ${waiting}"
 	fi
-	exit ${retvalue}
+	Exit ${retvalue}
 fi
 
 if [ -n "${decrease:++}" ]
@@ -369,6 +407,16 @@ then	GetLock
 	DropLock
 fi
 
+if ${usetitle}
+then	titlecommand=
+	${nocommand} || {
+		titlecommand=${1##*/}
+		if [ "${2}" != '--' ]
+		then	titlecommand=${1}${2:+ }${2}
+		else	titlecommand=${1}${3:+ }${3}
+		fi
+	}
+fi
 if ! ${immediately}
 then	WaitingLocked
 	if ${nocommand}
@@ -378,7 +426,7 @@ then	WaitingLocked
 		fi
 		${mustwrite} && Writing
 		DropLock
-		exit ${retvalue}
+		Exit ${retvalue}
 	fi
 elif ${nocommand}
 then	if ${success}
@@ -388,7 +436,7 @@ then	if ${success}
 		Writing
 		DropLock
 	fi
-	exit ${retvalue}
+	Exit ${retvalue}
 else	GetLock
 	Reading
 fi
@@ -399,15 +447,16 @@ FinishProcess() {
 	DoDecrease
 	Writing
 	DropLock
-	exit ${retvalue}
+	Exit ${retvalue}
 }
 
 number=$(( ${number} + 1 ))
 Writing
-DropLock "FinishProcess"
+DropLock FinishProcess
+Title "${titlecommand}"
 ( set +f
 "${@}" )
 retvalue=${?}
 ${success} && [ ${retvalue} -ne 0 ] || FinishProcess
 trap - EXIT
-exit ${retvalue}
+Exit ${retvalue}

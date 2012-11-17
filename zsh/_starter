@@ -1,5 +1,7 @@
 #compdef starter starter_trap
-local -a args
+local context state state_descr line
+typeset -A opt_args
+local args
 args=(
 '(* -)'{'-h','-H','-\\?'}'[help]'
 '-i[Start command immediately]'
@@ -17,7 +19,7 @@ args=(
 '-u+[Use umask ARG for queue and locks]:umask:(000)'
 '-t+[Use ARG as temporary directory]:queuefile:(/tmp ${TEMPDIR})'
 '-f+[Use ARG and ARG.lock for queue and lock files]:queuefile:(/tmp/starter.queues)'
-'-T+[Pass option \[pPfHsS-\] to the title script; -=no title]:title option:(p P f H s S -)'
+'*-T+[Set title option OPT]:title option:_title_opt'
 )
 case $service in
 (*trap*)

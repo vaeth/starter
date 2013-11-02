@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/sh
 # The above line is only for editors - actually this script *must* be sourced.
 # After sourcing, use "starter_trap -h" for help
 #

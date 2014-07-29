@@ -3,6 +3,9 @@ This project is under the BSD license.
 
 starter - POSIX shell script and function to schedule commands
 
+WARNING: Unless you have a special reason, use instead the successor project
+	https://github.com/vaeth/schedule
+
 This script can be used to schedule commands in a multitasking
 and multiuser environment.
 

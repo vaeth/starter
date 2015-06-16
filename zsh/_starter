@@ -17,7 +17,7 @@ args=(
 '-c+[Use queue ARG]:queue:(default)'
 '-s+[Sleep ARG between new checks of the queue]:time:(1s)'
 '-u+[Use umask ARG for queue and locks]:umask:(000)'
-'-t+[Use ARG as temporary directory]:queuefile:(/tmp ${TEMPDIR})'
+'-t+[Use ARG as temporary directory]:queuefile:(/tmp $TEMPDIR)'
 '-f+[Use ARG and ARG.lock for queue and lock files]:queuefile:(/tmp/starter.queues)'
 '*-T+[Set title option OPT]:title option:_title_opt'
 )

@@ -2,47 +2,47 @@
 # (C) Martin V\"ath <martin@mvath.de>
 
 Echo() {
-	printf '%s\n' "${*}"
+	printf '%s\n' "$*"
 }
 
 Message() {
-	Echo "${0##*/}: ${*}" >&2
+	Echo "${0##*/}: $*" >&2
 }
 
 Exit() {
-	exit ${1:-${?}}
+	exit ${1:-$?}
 }
 
 trapr=0
 Error() {
-	Message "${*}"
+	Message "$*"
 	trapr=2
 }
 
 Fatal() {
-	Error "${*}"
-	Exit ${trapr}
+	Error "$*"
+	Exit $trapr
 }
 
 Warning() {
-	${quiet} || Message "warning: ${*}"
+	$quiet || Message "warning: $*"
 }
 
 . push.sh
 
 CalcFilename() {
 	if [ -z "${filename:++}" ]
-	then	calctest="${tempdir%/}/${0##*/}.queues"
-	else	calctest="${filename}"
+	then	calctest=${tempdir%/}/${0##*/}.queues
+	else	calctest=$filename
 	fi
-	case ${calctest} in
-	/*)	eval ${1}=\${calctest};;
+	case $calctest in
+	/*)	eval $1=\$calctest;;
 	*)	Fatal 'filename must start with /';;
 	esac
-	calctest="${calctest%/*}"
+	calctest=${calctest%/*}
 	: ${calctest:=/}
-	test -d "${calctest}" && test -w "${calctest}" || \
-		Fatal "directory ${calctest} is not a writable directory"
+	test -d "$calctest" && test -w "$calctest" || \
+		Fatal "directory $calctest is not a writable directory"
 	unset calctest
 }
 
@@ -84,20 +84,20 @@ The following options are available:
         and exit.
 -P      Print the number of currently running/waiting processes and the
         number of currently waiting processes in the queue and exit.
--c NAME Use queue NAME. Current value: ${queuename}
+-c NAME Use queue NAME. Current value: $queuename
 -s TIME Sleep TIME between new checks of the queue. TIME is used as an
         argument to sleep (type \"man sleep\" for details).
-        Current value: ${sleeptime}
+        Current value: $sleeptime
 -u xxx  Use umask xxx to create the queue and lock FILEs.
         This defaults to your current umask (or 000 if STARTER=unsafe).
         Current value: ${myumask:-current umask}
 -t DIR  Use DIR as tempdir to store FILE and FILE.lock; this is ignored if
         option -f is used. Default is \$STARTER_DIR if set, otherwise \$HOME
         (or /tmp with STARTER=unsafe).
-        Current value: ${tempdir}
+        Current value: $tempdir
 -f FILE Use FILE and FILE.lock for queues and locking, respectively.
         FILE must be an absolute path. Defaults to: 'tempdir/${0##*/}.queues'
-        Current value: ${fileprint}
+        Current value: $fileprint
 
 Security notes:
 
@@ -125,13 +125,13 @@ Nevertheless, the users from this group can still start symlink attacks."
 
 set -f
 
-tempdir=${STARTER_DIR}
-case ${STARTER} in
+tempdir=$STARTER_DIR
+case $STARTER in
 unsafe)
 	: ${tempdir:=/tmp}
 	myumask='000';;
 *)
-	: ${tempdir:=${HOME}}
+	: ${tempdir:=$HOME}
 	myumask=;;
 esac
 filename=
@@ -147,11 +147,11 @@ noargok=false
 quiet=false
 OPTIND=1
 while getopts 'iwT:vqSd0zZpPc:s:u:t:f:hH?' opt
-do	case ${opt} in
+do	case $opt in
 	i)	immediately=:;;
 	w)	nocommand=:
 		noargok=:;;
-	T)	titleopt=${titleopt}${OPTARG};;
+	T)	titleopt=$titleopt$OPTARG;;
 	v)	verbose=:;;
 	q)	quiet=:;;
 	S)	success=:;;
@@ -163,19 +163,19 @@ do	case ${opt} in
 		noargok=:;;
 	P)	printonly=1
 		noargok=:;;
-	c)	queuename=${OPTARG};;
-	s)	sleeptime=${OPTARG};;
-	u)	myumask=${OPTARG};;
-	t)	tempdir=${OPTARG};;
-	f)	filename=${OPTARG};;
+	c)	queuename=$OPTARG;;
+	s)	sleeptime=$OPTARG;;
+	u)	myumask=$OPTARG;;
+	t)	tempdir=$OPTARG;;
+	f)	filename=$OPTARG;;
 	*)	Usage;;
 	esac
 done
-shift $(( ${OPTIND} - 1 ))
-[ ${#} -ne 0 ] || ${noargok} || Usage
+shift $(( $OPTIND - 1 ))
+[ $# -ne 0 ] || $noargok || Usage
 
 usetitle=:
-case ${titleopt} in
+case $titleopt in
 *[!pPfHsS-]*)
 	Usage;;
 *-*)
@@ -186,61 +186,61 @@ Title() {
 Title() {
 :
 }
-	${usetitle} || return 0
+	$usetitle || return 0
 	command -v title >/dev/null 2>&1 || return 0
 TitleInit() {
-. title "${@}"
+. title "$@"
 }
 Exit() {
-	exitstatus=${1:-${?}}
+	exitstatus=${1:-$?}
 	TitleVerbose
-	exit ${exitstatus}
+	exit $exitstatus
 }
-	TitleInit ${titleopt:+"-${titleopt}"} -- "${@}"
+	TitleInit ${titleopt:+"-$titleopt"} -- "$@"
 }
 
 CalcFilename filename
 
 retvalue=0
 
-${verbose} && toexec="${*}: "
+$verbose && toexec="$*: "
 
 if [ -z "${printonly:++}" ]
-then	lockfile="${filename}.lock"
-	magic="${$}.${RANDOM}."
+then	lockfile=$filename.lock
+	magic=$$.$RANDOM.
 fi
 
 Umask() {
-	[ -z "${myumask:++}" ] || umask "${myumask}"
+	[ -z "${myumask:++}" ] || umask "$myumask"
 }
 
 GetLock() {
-	if [ ${retvalue} -eq 0 ]
+	if [ $retvalue -eq 0 ]
 	then	trapr=1
-	else	trapr=${retvalue}
+	else	trapr=$retvalue
 	fi
-	[ ${#} -eq 0 ] && trap "DropLock
-Exit ${trapr}" EXIT HUP INT TERM
+	[ $# -eq 0 ] && trap "DropLock
+Exit $trapr" EXIT HUP INT TERM
 	while :
-	do	while test -r "${lockfile}"
+	do	while test -r "$lockfile"
 		do	sleep 1
 		done
-		( Umask && set -C && Echo "${magic}" >"${lockfile}" ) \
+		( Umask && set -C && Echo "$magic" >"$lockfile" ) \
 			>/dev/null 2>&1 || continue
 		# Test whether another process took precedence before writing.
 		# This avoids a race condition beetween the test and creation of
 		# the lockfile.
-		read readmagic <"${lockfile}"
-		case ${readmagic} in
-		"${magic}"*) return
+		read readmagic <"$lockfile"
+		case $readmagic in
+		"$magic"*) return
 		esac
 	done
 }
 
 DropLock() {
 	trap : EXIT HUP INT TERM
-	rm -- "${lockfile}" >/dev/null 2>&1 \
-		|| Fatal "cannot remove ${lockfile}"
+	rm -- "$lockfile" >/dev/null 2>&1 \
+		|| Fatal "cannot remove $lockfile"
 	trap "${1:--}" EXIT HUP INT TERM
 }
 
@@ -250,19 +250,19 @@ DropLock() {
 Reading() {
 	Push -c queues
 	number=
-	if test -r "${filename}"
+	if test -r "$filename"
 	then	while read num wait tot queue
-		do	case ${num} in
+		do	case $num in
 			*'#'*) continue;;
 			esac
 			[ -n "${queue:++}" ] || continue
-			if [ "${queue}" = "${queuename}" ]
-			then	number=${num}
-				waiting=${wait}
-				total=${tot}
-			else	Push queues "${num} ${wait} ${tot} ${queue}"
+			if [ "$queue" = "$queuename" ]
+			then	number=$num
+				waiting=$wait
+				total=$tot
+			else	Push queues "$num $wait $tot $queue"
 			fi
-		done <"${filename}"
+		done <"$filename"
 	fi
 	if [ -z "${number:++}" ]
 	then	number=0
@@ -272,8 +272,8 @@ Reading() {
 }
 
 NewFile() {
-	( Umask && Echo "# ${0##*/} status-file" >"${filename}" ) \
-		|| Fatal "cannot write to ${filename}"
+	( Umask && Echo "# ${0##*/} status-file" >"$filename" ) \
+		|| Fatal "cannot write to $filename"
 }
 
 # Write the current content of number, waiting, total, and queues.
@@ -281,45 +281,45 @@ NewFile() {
 # without an intermediate call of Reading.
 
 Writing() {
-	[ "${number}" -le 0 ] || \
-		Push queues "${number} ${waiting} ${total} ${queuename}"
+	[ "$number" -le 0 ] || \
+		Push queues "$number $waiting $total $queuename"
 	if [ -z "${queues:++}" ]
-	then	if test -r "${filename}"
+	then	if test -r "$filename"
 		then	NewFile
-			rm -- "${filename}" >/dev/null 2>&1 \
-				|| Warning "cannot remove ${filename}"
+			rm -- "$filename" >/dev/null 2>&1 \
+				|| Warning "cannot remove $filename"
 		fi
 		return
 	fi
 	NewFile
-	eval "set -- ${queues}"
+	eval "set -- $queues"
 	for writeline
-	do	Echo "${writeline}" >>"${filename}" \
-			|| Fatal "cannot append to ${filename}"
+	do	Echo "$writeline" >>"$filename" \
+			|| Fatal "cannot append to $filename"
 	done
 }
 
 DoDecrease() {
-	number=$(( ${number} - 1 ))
-	[ "${number}" -lt "${waiting}" ] && waiting=${number}
+	number=$(( $number - 1 ))
+	[ "$number" -lt "$waiting" ] && waiting=$number
 }
 
 IsReady() {
 	# Decreasing of total means that we had some "reset":
-	[ "${mypos}" -gt "${total}" ] && return 0
+	[ "$mypos" -gt "$total" ] && return 0
 	# Not all running processes are waiting. Then wait.
-	[ "${number}" -gt "${waiting}" ] && return 1
+	[ "$number" -gt "$waiting" ] && return 1
 	# new is the number of waiting processes added since we wait:
-	new=$(( ${total} - ${mypos} ))
+	new=$(( $total - $mypos ))
 	# There are more processes waiting than new ones,
 	# i.e. our process should wait.
-	[ "${waiting}" -gt "${new}" ] && return 1
+	[ "$waiting" -gt "$new" ] && return 1
 	return 0
 }
 
 DecreaseTrap() {
-	waiting=$(( ${waiting} - 1 ))
-	number=$(( ${number} - 1 ))
+	waiting=$(( $waiting - 1 ))
+	number=$(( $number - 1 ))
 	Writing
 	trap - EXIT
 }
@@ -345,40 +345,40 @@ DecreaseTrap() {
 WaitingLocked() {
 	GetLock
 	Reading
-	mypos=${total}
+	mypos=$total
 	if IsReady
 	then	mustwrite=false
 		return
 	fi
-	number=$(( ${number} + 1 ))
-	waiting=$(( ${waiting} + 1 ))
-	total=$(( ${total} + 1 ))
+	number=$(( $number + 1 ))
+	waiting=$(( $waiting + 1 ))
+	total=$(( $total + 1 ))
 	mustwrite=:
 	Writing
 	prevtitle=
 	while :
 	do	DropLock "DecreaseTrap
-Exit ${trapr}"
-		if ${verbose} || ${usetitle}
-		then	calccount=$(( ${number} + ${mypos} - ${total} ))
-			if ${usetitle}
-			then	currtitle="zzz... ${calccount}${titlecommand:+ -> }${titlecommand}"
-				[ "${currtitle}" = "${prevtitle}" ] || {
-					Title "${currtitle}"
-					prevtitle=${currtitle}
+Exit $trapr"
+		if $verbose || $usetitle
+		then	calccount=$(( $number + $mypos - $total ))
+			if $usetitle
+			then	currtitle="zzz... $calccount${titlecommand:+ -> }$titlecommand"
+				[ "$currtitle" = "$prevtitle" ] || {
+					Title "$currtitle"
+					prevtitle=$currtitle
 				}
 			fi
-			! ${verbose} || Message "${toexec}sleep ${sleeptime}
-${number} processes in queue \"${queuename}\", ${waiting} of them waiting
-${calccount} processes must first be finished"
+			! $verbose || Message "${toexec}sleep $sleeptime
+$number processes in queue \"$queuename\", $waiting of them waiting
+$calccount processes must first be finished"
 		fi
-		sleep "${sleeptime}"
+		sleep "$sleeptime"
 		GetLock
 		Reading
 		if IsReady
-		then	number=$(( ${number} - 1 ))
-			waiting=$(( ${waiting} - 1 ))
-			Title "${titlecommand}"
+		then	number=$(( $number - 1 ))
+			waiting=$(( $waiting - 1 ))
+			Title "$titlecommand"
 			return
 		fi
 	done
@@ -386,57 +386,57 @@ ${calccount} processes must first be finished"
 
 if [ -n "${printonly:++}" ]
 then	Reading
-	if [ "${printonly}" -eq 0 ]
-	then	Echo "${number}"
-	else	Echo "${number} ${waiting}"
+	if [ "$printonly" -eq 0 ]
+	then	Echo "$number"
+	else	Echo "$number $waiting"
 	fi
-	Exit ${retvalue}
+	Exit $retvalue
 fi
 
 if [ -n "${decrease:++}" ]
 then	GetLock
-	[ "${decrease}" != 'Z' ] && Reading
-	if [ "${decrease}" = '1' ]
+	[ "$decrease" != 'Z' ] && Reading
+	if [ "$decrease" = '1' ]
 	then	DoDecrease
 	else	number=0
 		waiting=0
 		total=0
-		[ "${decrease}" = '0' ] && Push -c queues
+		[ "$decrease" = '0' ] && Push -c queues
 	fi
 	Writing
 	DropLock
 fi
 
-if ${usetitle}
+if $usetitle
 then	titlecommand=
-	${nocommand} || {
+	$nocommand || {
 		titlecommand=${1##*/}
-		if [ "${2}" != '--' ]
-		then	titlecommand=${1}${2:+ }${2}
-		else	titlecommand=${1}${3:+ }${3}
+		if [ "$2" != '--' ]
+		then	titlecommand=$1${2:+ }$2
+		else	titlecommand=$1${3:+ }$3
 		fi
 	}
 fi
-if ! ${immediately}
+if ! $immediately
 then	WaitingLocked
-	if ${nocommand}
-	then	if ${success}
+	if $nocommand
+	then	if $success
 		then	mustwrite=:
-			number=$(( ${number} + 1 ))
+			number=$(( $number + 1 ))
 		fi
-		${mustwrite} && Writing
+		$mustwrite && Writing
 		DropLock
-		Exit ${retvalue}
+		Exit $retvalue
 	fi
-elif ${nocommand}
-then	if ${success}
+elif $nocommand
+then	if $success
 	then	GetLock
 		Reading
-		number=$(( ${number} + 1 ))
+		number=$(( $number + 1 ))
 		Writing
 		DropLock
 	fi
-	Exit ${retvalue}
+	Exit $retvalue
 else	GetLock
 	Reading
 fi
@@ -447,16 +447,16 @@ FinishProcess() {
 	DoDecrease
 	Writing
 	DropLock
-	Exit ${retvalue}
+	Exit $retvalue
 }
 
-number=$(( ${number} + 1 ))
+number=$(( $number + 1 ))
 Writing
 DropLock FinishProcess
-Title "${titlecommand}"
+Title "$titlecommand"
 ( set +f
-"${@}" )
-retvalue=${?}
-${success} && [ ${retvalue} -ne 0 ] || FinishProcess
+"$@" )
+retvalue=$?
+$success && [ $retvalue -ne 0 ] || FinishProcess
 trap - EXIT
-Exit ${retvalue}
+Exit $retvalue

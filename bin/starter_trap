@@ -5,27 +5,27 @@
 # (C) Martin V\"ath <martin@mvath.de>
 
 Push() {
-	. push.sh && Push "${@}"
+	. push.sh && Push "$@"
 }
 
 starter_trap() {
 starter_trap_sub() {
-	case ${-} in
-	*f*)	eval "set -- ${starter_trap_arg}";;
+	case $- in
+	*f*)	eval "set -- $starter_trap_arg";;
 	*)	set -f
-		eval "set -- ${starter_trap_arg}"
+		eval "set -- $starter_trap_arg"
 		set +f;;
 	esac
-	starter -idw "${@}"
+	starter -idw "$@"
 	trap - EXIT HUP INT TERM
 	unset starter_trap_arg
 	unset -f starter_trap_sub
 }
-case ${1} in
+case $1 in
 start)
 	shift
-	starter -Sw "${@}"
-	Push -c starter_trap_arg "${@}"
+	starter -Sw "$@"
+	Push -c starter_trap_arg "$@"
 	trap starter_trap_sub EXIT HUP INT TERM;;
 stop)
 	starter_trap_sub;;
@@ -54,7 +54,7 @@ unexpected results unless bash >= 3 is used.
 
 Note that shell variables/functions of the form starter_trap_* might be
 modified by this function.'
-	! case ${1} in
+	! case $1 in
 	-[hH?]|help)	false;;
 	esac;;
 esac

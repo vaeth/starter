@@ -362,7 +362,7 @@ Exit $trapr"
 		if $verbose || $usetitle
 		then	calccount=$(( $number + $mypos - $total ))
 			if $usetitle
-			then	currtitle="zzz... $calccount${titlecommand:+ -> }$titlecommand"
+			then	currtitle='zzz... '$calccount${titlecommand:+\ -\>\ }$titlecommand
 				[ "$currtitle" = "$prevtitle" ] || {
 					Title "$currtitle"
 					prevtitle=$currtitle
@@ -412,8 +412,8 @@ then	titlecommand=
 	$nocommand || {
 		titlecommand=${1##*/}
 		if [ "$2" != '--' ]
-		then	titlecommand=$1${2:+ }$2
-		else	titlecommand=$1${3:+ }$3
+		then	titlecommand=$1${2:+\ }$2
+		else	titlecommand=$1${3:+\ }$3
 		fi
 	}
 fi

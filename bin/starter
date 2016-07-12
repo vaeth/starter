@@ -256,7 +256,7 @@ Reading() {
 			*'#'*) continue;;
 			esac
 			[ -n "${queue:++}" ] || continue
-			if [ "$queue" = "$queuename" ]
+			if [ x"$queue" = x"$queuename" ]
 			then	number=$num
 				waiting=$wait
 				total=$tot
@@ -292,7 +292,8 @@ Writing() {
 		return
 	fi
 	NewFile
-	eval "set -- $queues"
+	eval "set -- a $queues"
+	shift
 	for writeline
 	do	Echo "$writeline" >>"$filename" \
 			|| Fatal "cannot append to $filename"
@@ -363,7 +364,7 @@ Exit $trapr"
 		then	calccount=$(( $number + $mypos - $total ))
 			if $usetitle
 			then	currtitle='zzz... '$calccount${titlecommand:+\ -\>\ }$titlecommand
-				[ "$currtitle" = "$prevtitle" ] || {
+				[ x"$currtitle" = x"$prevtitle" ] || {
 					Title "$currtitle"
 					prevtitle=$currtitle
 				}
@@ -395,13 +396,13 @@ fi
 
 if [ -n "${decrease:++}" ]
 then	GetLock
-	[ "$decrease" != 'Z' ] && Reading
-	if [ "$decrease" = '1' ]
+	[ x"$decrease" != x'Z' ] && Reading
+	if [ x"$decrease" = x'1' ]
 	then	DoDecrease
 	else	number=0
 		waiting=0
 		total=0
-		[ "$decrease" = '0' ] && Push -c queues
+		[ x"$decrease" = x'0' ] && Push -c queues
 	fi
 	Writing
 	DropLock
@@ -411,9 +412,9 @@ if $usetitle
 then	titlecommand=
 	$nocommand || {
 		titlecommand=${1##*/}
-		if [ "$2" != '--' ]
-		then	titlecommand=$1${2:+\ }$2
-		else	titlecommand=$1${3:+\ }$3
+		if [ x"${2-}" != x'--' ]
+		then	titlecommand=$1${2:+\ }${2-}
+		else	titlecommand=$1${3:+\ }${3-}
 		fi
 	}
 fi

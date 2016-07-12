@@ -5,27 +5,28 @@
 # (C) Martin V\"ath <martin@mvath.de>
 
 Push() {
-	. push.sh && Push "$@"
+	. push.sh
+	Push "$@"
 }
 
 starter_trap() {
 starter_trap_sub() {
 	case $- in
-	*f*)	eval "set -- $starter_trap_arg";;
+	*f*)	eval "set -- a $starter_trap_arg";;
 	*)	set -f
-		eval "set -- $starter_trap_arg"
+		eval "set -- a $starter_trap_arg"
 		set +f;;
 	esac
-	starter -idw "$@"
+	shift
+	starter -idw ${1+"$@"}
 	trap - EXIT HUP INT TERM
 	unset starter_trap_arg
-	unset -f starter_trap_sub
 }
-case $1 in
+case ${1-} in
 start)
 	shift
-	starter -Sw "$@"
-	Push -c starter_trap_arg "$@"
+	starter -Sw ${1+"$@"}
+	Push -c starter_trap_arg ${1+"$@"}
 	trap starter_trap_sub EXIT HUP INT TERM;;
 stop)
 	starter_trap_sub;;

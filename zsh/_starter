@@ -3,7 +3,7 @@ local context state state_descr line
 typeset -A opt_args
 local args
 args=(
-'(* -)'{'-h','-H','-\\?'}'[help]'
+'(* -)'{'-h','-H'}'[help]'
 '-i[Start command immediately]'
 '-w[Do not start any command, only wait]'
 '-v[Verbose]'

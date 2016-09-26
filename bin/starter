@@ -146,7 +146,7 @@ verbose=false
 noargok=false
 quiet=false
 OPTIND=1
-while getopts 'iwT:vqSd0zZpPc:s:u:t:f:hH?' opt
+while getopts 'iwT:vqSd0zZpPc:s:u:t:f:hH' opt
 do	case $opt in
 	i)	immediately=:;;
 	w)	nocommand=:
@@ -168,7 +168,8 @@ do	case $opt in
 	u)	myumask=$OPTARG;;
 	t)	tempdir=$OPTARG;;
 	f)	filename=$OPTARG;;
-	*)	Usage;;
+	'?')	exit 1;;
+	*)	Usage 0;;
 	esac
 done
 shift $(( $OPTIND - 1 ))

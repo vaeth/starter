@@ -1,6 +1,5 @@
-#!/bin/sh
-# The above line is only for editors - actually this script *must* be sourced.
-# After sourcing, use "starter_trap -h" for help
+#!/usr/bin/env cat
+# eval this output, and then use "starter_trap -h" for help
 #
 # (C) Martin V\"ath <martin@mvath.de>
 

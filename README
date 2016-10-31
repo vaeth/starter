@@ -28,14 +28,23 @@ To get help about the usage, call
 	starter -h
 
 There is also a starter_trap function available for execution of
-commands within your current shell. To use it, execute
+commands within your current shell. To obtain this function use either
+
+eval `starter_trap`
+
+or
 
 . starter_trap
 
 in your current shell or put the following into your shell startup files:
 
 starter_trap() {
-	. starter_trap && starter_trap "$@"
+	if starter_trap=`starter_trap 2>/dev/null`
+	then	eval "$starter_trap"
+	else	echo "starter_trap not found" >&2
+		return 1
+	fi
+	starter_trap ${1+"$@"}
 }
 
 Information about the starter_trap function can then be obtained with
